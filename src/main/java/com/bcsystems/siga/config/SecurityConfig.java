@@ -76,7 +76,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-         config.setAllowedOrigins(Arrays.stream((corsOrigins + ",https://sigashop.omisoltec.mx").split(","))
+         config.setAllowedOrigins(Arrays.stream((corsOrigins + ",https://termopolis.omisoltec.mx").split(","))
                  .map(String::trim).filter(origin -> !origin.isBlank()).distinct().toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
          config.setAllowedHeaders(List.of("Content-Type", "Accept", "X-XSRF-TOKEN"));
