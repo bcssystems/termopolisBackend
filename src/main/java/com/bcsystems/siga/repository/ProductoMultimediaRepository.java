@@ -15,6 +15,7 @@ public interface ProductoMultimediaRepository extends JpaRepository<ProductoMult
     List<ProductoMultimedia> findByProductoIdProductoInAndTipoOrderByEsPrincipalDescOrdenAscIdMultimediaAsc(Collection<Integer> ids, String tipo);
     long countByProductoIdProducto(Integer idProducto);
     Optional<ProductoMultimedia> findFirstByProductoIdProductoAndEsPrincipalTrueAndTipoOrderByOrdenAsc(Integer idProducto, String tipo);
+    Optional<ProductoMultimedia> findFirstByProductoIdProductoAndTipoOrderByOrdenAscIdMultimediaAsc(Integer idProducto, String tipo);
 
     @Query("select coalesce(max(m.orden), -1) from ProductoMultimedia m where m.producto.idProducto = :idProducto")
     int maxOrden(@Param("idProducto") Integer idProducto);

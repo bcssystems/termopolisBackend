@@ -10,5 +10,7 @@ public record VentaDetalleResponse(
         String unidadMedida,
         Double precioUnitario,
         Double subtotal,
-        String atributosText
+        String atributosText,
+        Integer idPersonalizacion,
+        String personalizacionFolio
 ) {}

@@ -9,6 +9,7 @@ import com.bcsystems.siga.repository.*;
 import com.bcsystems.siga.service.AuditoriaService;
 import com.bcsystems.siga.service.VentaService;
 import com.bcsystems.siga.service.FinanzasService;
+import com.bcsystems.siga.service.PersonalizacionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +44,7 @@ public class VentaServiceImpl implements VentaService {
     private final MovimientoStockRepository movimientoStockRepository;
     private final ClienteIneRepository clienteIneRepository;
     private final FinanzasService finanzasService;
+    private final PersonalizacionService personalizacionService;
 
     @Override
     @Transactional
@@ -82,6 +84,7 @@ public class VentaServiceImpl implements VentaService {
                 .descuento(request.descuento())
                 .total(request.total())
                 .nota(request.nota())
+                .fechaEntrega(request.fechaEntrega())
                 .folioPagare(generarFolioPagaré())
                 .estado(enviandoPedido ? EstadoVenta.ENVIANDO_PEDIDO : EstadoVenta.COMPLETADA)
                 .fecha(LocalDateTime.now())
@@ -92,7 +95,19 @@ public class VentaServiceImpl implements VentaService {
 
         List<VentaDetalle> detalles = new ArrayList<>();
         double subtotalEfectivo = 0.0;
+        boolean esperaTemporal = !enviandoPedido
+                && request.pagos() == null
+                && !TipoVenta.CREDITO.name().equals(request.tipoVenta());
         for (VentaDetalleRequest dto : request.detalles()) {
+            Personalizacion personalizacion = dto.idPersonalizacion() != null
+                    ? personalizacionService.obtenerParaVenta(dto.idPersonalizacion()) : null;
+            if (personalizacion != null && (dto.idProducto() == null
+                    || !personalizacion.getProducto().getIdProducto().equals(dto.idProducto()))) {
+                throw new InvalidEntryException("La personalización debe venderse con su producto asociado");
+            }
+            if (personalizacion != null && venta.getFechaEntrega() == null) {
+                venta.setFechaEntrega(personalizacion.getFechaEntrega());
+            }
             VentaDetalle detalle = VentaDetalle.builder()
                     .venta(venta)
                     .producto(dto.idProducto() != null
@@ -102,6 +117,7 @@ public class VentaServiceImpl implements VentaService {
                     .precioUnitario(dto.precioUnitario())
                     .subtotal(dto.subtotal())
                     .atributosText(dto.atributosText())
+                    .personalizacion(personalizacion)
                     .build();
 
             validarCantidadProducto(detalle.getProducto(), dto.cantidad());
@@ -124,6 +140,9 @@ public class VentaServiceImpl implements VentaService {
                 subtotalEfectivo += dto.subtotal();
             }
             detalles.add(ventaDetalleRepository.save(detalle));
+            if (personalizacion != null && !esperaTemporal && !enviandoPedido) {
+                personalizacionService.marcarVendida(personalizacion);
+            }
 
             if (dto.idProducto() != null && dto.idProducto() > 0) {
                 Producto p = detalle.getProducto();
@@ -175,6 +194,8 @@ public class VentaServiceImpl implements VentaService {
                 }
             }
         }
+
+        venta = ventaRepository.save(venta);
 
         boolean esCredito = TipoVenta.CREDITO.name().equals(request.tipoVenta());
         double sumaPagos = request.pagos() != null
@@ -260,7 +281,7 @@ public class VentaServiceImpl implements VentaService {
                 cajaRepository.save(caja);
             }
         } else {
-            if (!enviandoPedido) {
+            if (!enviandoPedido && !esperaTemporal) {
                 caja.setSaldoActual(caja.getSaldoActual() + request.total());
                 cajaRepository.save(caja);
             }
@@ -393,6 +414,9 @@ public class VentaServiceImpl implements VentaService {
         Sucursal sucursal = venta.getCaja().getSucursal();
         List<VentaDetalle> detalles = ventaDetalleRepository.findByVentaIdVenta(id);
         for (VentaDetalle d : detalles) {
+            if (d.getPersonalizacion() != null) {
+                personalizacionService.marcarDisponible(d.getPersonalizacion());
+            }
             if (d.getProducto() != null) {
                 Producto p = d.getProducto();
                 java.math.BigDecimal stockGlobal = p.getStockActual() != null
@@ -519,6 +543,12 @@ public class VentaServiceImpl implements VentaService {
 
         List<VentaDetalle> nuevos = new ArrayList<>();
         for (VentaDetalleRequest dto : request.detalles()) {
+            Personalizacion personalizacion = dto.idPersonalizacion() != null
+                    ? personalizacionService.obtenerParaVenta(dto.idPersonalizacion()) : null;
+            if (personalizacion != null && (dto.idProducto() == null
+                    || !personalizacion.getProducto().getIdProducto().equals(dto.idProducto()))) {
+                throw new InvalidEntryException("La personalización debe venderse con su producto asociado");
+            }
             VentaDetalle detalle = VentaDetalle.builder()
                     .venta(venta)
                     .producto(dto.idProducto() != null
@@ -528,6 +558,7 @@ public class VentaServiceImpl implements VentaService {
                     .precioUnitario(dto.precioUnitario())
                     .subtotal(dto.subtotal())
                     .atributosText(dto.atributosText())
+                    .personalizacion(personalizacion)
                     .build();
             validarCantidadProducto(detalle.getProducto(), dto.cantidad());
             if (detalle.getProducto() != null) {
@@ -541,6 +572,7 @@ public class VentaServiceImpl implements VentaService {
         venta.setDescuento(request.descuento());
         venta.setTotal(request.total());
         venta.setNota(request.nota());
+        venta.setFechaEntrega(request.fechaEntrega());
         venta = ventaRepository.save(venta);
 
         return toResponse(venta, nuevos);
@@ -637,6 +669,9 @@ public class VentaServiceImpl implements VentaService {
         Sucursal sucursal = venta.getCaja().getSucursal();
         List<VentaDetalle> detalles = ventaDetalleRepository.findByVentaIdVenta(id);
         for (VentaDetalle d : detalles) {
+            if (d.getPersonalizacion() != null) {
+                personalizacionService.marcarDisponible(d.getPersonalizacion());
+            }
             if (d.getProducto() != null) {
                 Producto p = d.getProducto();
                 java.math.BigDecimal stockGlobalEspera = p.getStockActual() != null
@@ -725,6 +760,12 @@ public class VentaServiceImpl implements VentaService {
         }
         venta.setEstado(EstadoVenta.COMPLETADA);
         ventaRepository.save(venta);
+
+        ventaDetalleRepository.findByVentaIdVenta(id).forEach(detalle -> {
+            if (detalle.getPersonalizacion() != null) {
+                personalizacionService.marcarVendida(detalle.getPersonalizacion());
+            }
+        });
 
         Persona usuario = obtenerPersonaActual();
         Caja caja = venta.getCaja();
@@ -818,7 +859,9 @@ public class VentaServiceImpl implements VentaService {
                         d.getCantidad(),
                         d.getProducto() != null ? d.getProducto().getUnidadMedida() : null,
                         d.getPrecioUnitario(), d.getSubtotal(),
-                        d.getAtributosText()))
+                        d.getAtributosText(),
+                        d.getPersonalizacion() != null ? d.getPersonalizacion().getIdPersonalizacion() : null,
+                        d.getPersonalizacion() != null ? d.getPersonalizacion().getFolio() : null))
                 .toList();
 
         List<VentaPagoResponse> pagoResponses = ventaPagoRepository.findByVentaIdVenta(v.getIdVenta())
@@ -851,6 +894,7 @@ public class VentaServiceImpl implements VentaService {
                 v.getFechaSolicitudCancelacion(),
                 v.getAutorizadorCancelacion() != null ? v.getAutorizadorCancelacion().getUsuario() : null,
                 v.getFechaAutorizacionCancelacion(),
-                v.getFechaGeneracionCodigo() != null);
+                v.getFechaGeneracionCodigo() != null,
+                v.getFechaEntrega());
     }
 }

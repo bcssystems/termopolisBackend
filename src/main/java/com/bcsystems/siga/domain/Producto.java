@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -58,6 +59,23 @@ public class Producto {
     @Column(nullable = false)
     private Boolean activo = true;
 
+    @Builder.Default
+    @Column(name = "es_personalizable", nullable = false)
+    private Boolean esPersonalizable = false;
+
+    @Column(name = "capacidad_ml")
+    private Integer capacidadMl;
+
+    @Column(length = 80)
+    private String material;
+
+    @Column(name = "tipo_tapa", length = 80)
+    private String tipoTapa;
+
+    @Builder.Default
+    @Column(name = "precio_personalizacion", nullable = false)
+    private Double precioPersonalizacion = 0.0;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;
@@ -69,4 +87,11 @@ public class Producto {
     @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<InventarioSucursal> inventarioSucursales = new ArrayList<>();
+
+    @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true,
+            fetch = FetchType.LAZY)
+    @OrderBy("orden ASC, idColor ASC")
+    @NotAudited
+    @Builder.Default
+    private List<ProductoColor> colores = new ArrayList<>();
 }

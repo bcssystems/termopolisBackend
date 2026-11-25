@@ -6,5 +6,6 @@ public record VentaDetalleRequest(
         java.math.BigDecimal cantidad,
         Double precioUnitario,
         Double subtotal,
-        String atributosText
+        String atributosText,
+        Integer idPersonalizacion
 ) {}

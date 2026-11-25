@@ -58,6 +58,7 @@ public class ProductoServiceImpl implements ProductoService {
         this.multimediaRepository = multimediaRepository;
     }
 
+    @Transactional(readOnly = true)
     @Override
     public Page<ProductoResponse> listar(String search, Boolean activo, Integer idSucursal, Integer idCategoria, Pageable pageable) {
         Page<Producto> page = productoRepository.buscarConFiltros(search, activo, idSucursal, idCategoria, pageable);
@@ -129,9 +130,15 @@ public class ProductoServiceImpl implements ProductoService {
                 .stockMinimo(minTotal)
                 .stockMaximo(maxTotal)
                 .activo(request.activo() != null ? request.activo() : true)
+                .esPersonalizable(Boolean.TRUE.equals(request.esPersonalizable()))
+                .capacidadMl(request.capacidadMl())
+                .material(request.material())
+                .tipoTapa(request.tipoTapa())
+                .precioPersonalizacion(request.precioPersonalizacion() != null ? request.precioPersonalizacion() : 0.0)
                 .build();
 
         producto = productoRepository.save(producto);
+        guardarColores(producto, request.colores());
         guardarInventarios(producto, request.inventarios(), usuario);
         auditoriaService.registrar("PRODUCTO", producto.getIdProducto(), AccionAuditoria.CREACION.name(), usuario,
                 "Se cre\u00f3 el producto: " + producto.getNombre());
@@ -202,6 +209,12 @@ public class ProductoServiceImpl implements ProductoService {
         producto.setCategoria(resolverCategoria(request.idCategoria()));
         if (request.unidadMedida() != null) producto.setUnidadMedida(request.unidadMedida());
         if (request.activo() != null) producto.setActivo(request.activo());
+        producto.setEsPersonalizable(Boolean.TRUE.equals(request.esPersonalizable()));
+        producto.setCapacidadMl(request.capacidadMl());
+        producto.setMaterial(request.material());
+        producto.setTipoTapa(request.tipoTapa());
+        producto.setPrecioPersonalizacion(request.precioPersonalizacion() != null ? request.precioPersonalizacion() : 0.0);
+        guardarColores(producto, request.colores());
 
         if (request.inventarios() != null) {
             java.math.BigDecimal stockTotal = java.math.BigDecimal.ZERO;
@@ -577,6 +590,10 @@ public class ProductoServiceImpl implements ProductoService {
         if (Set.of(".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif").contains(ext)
                 && (mime.startsWith("image/") || mime.equals("application/octet-stream"))) {
             tipo = "IMAGEN";
+        } else if (ext.equals(".glb")
+                && (mime.equals("model/gltf-binary") || mime.equals("application/octet-stream")
+                || mime.equals("application/octet-stream; charset=binary"))) {
+            tipo = "MODELO_3D";
         } else if (Set.of(".mp4", ".webm", ".mov", ".ogg").contains(ext)
                 && (mime.startsWith("video/") || mime.equals("application/octet-stream"))) {
             tipo = "VIDEO";
@@ -584,7 +601,7 @@ public class ProductoServiceImpl implements ProductoService {
                 && (mime.equals("application/pdf") || mime.equals("application/octet-stream"))) {
             tipo = "DOCUMENTO";
         } else {
-            throw new InvalidEntryException("El archivo debe ser una imagen, video compatible o PDF válido");
+            throw new InvalidEntryException("El archivo debe ser una imagen, modelo GLB, video compatible o PDF válido");
         }
 
         String nombreGuardado = UUID.randomUUID() + extension;
@@ -667,6 +684,35 @@ public class ProductoServiceImpl implements ProductoService {
                 .stream().map(this::toMultimediaResponse).toList();
     }
 
+    private void guardarColores(Producto producto, List<ProductoColorRequest> colores) {
+        if (colores == null) {
+            if (Boolean.TRUE.equals(producto.getEsPersonalizable()) && producto.getColores().isEmpty()) {
+                throw new InvalidEntryException("Un termo personalizable debe tener al menos un color");
+            }
+            return;
+        }
+
+        producto.getColores().clear();
+
+        int orden = 0;
+        for (ProductoColorRequest request : colores) {
+            if (request == null || request.nombre() == null || request.nombre().isBlank()
+                    || request.hex() == null || !request.hex().matches("#[0-9a-fA-F]{6}")) {
+                throw new InvalidEntryException("Cada color debe tener nombre y un HEX válido, por ejemplo #D94F87");
+            }
+            producto.getColores().add(ProductoColor.builder()
+                    .producto(producto)
+                    .nombre(request.nombre().trim())
+                    .hex(request.hex().toUpperCase(Locale.ROOT))
+                    .activo(request.activo() == null || request.activo())
+                    .orden(request.orden() != null ? request.orden() : orden++)
+                    .build());
+        }
+        if (Boolean.TRUE.equals(producto.getEsPersonalizable()) && producto.getColores().isEmpty()) {
+            throw new InvalidEntryException("Un termo personalizable debe tener al menos un color");
+        }
+    }
+
     private ProductoMultimediaResponse toMultimediaResponse(ProductoMultimedia media) {
         return new ProductoMultimediaResponse(media.getIdMultimedia(), media.getProducto().getIdProducto(),
                 media.getTipo(), media.getUrl(), media.getNombreArchivo(), media.getEsPrincipal(),
@@ -726,6 +772,13 @@ public class ProductoServiceImpl implements ProductoService {
                         i.stock(), i.stockMinimo(), i.stockMaximo()))
                 .collect(Collectors.toList());
 
+        List<ProductoColorResponse> colores = p.getColores().stream()
+                .map(c -> new ProductoColorResponse(c.getIdColor(), c.getNombre(), c.getHex(), c.getActivo(), c.getOrden()))
+                .collect(Collectors.toList());
+        String modelo3dUrl = multimediaRepository
+                .findFirstByProductoIdProductoAndTipoOrderByOrdenAscIdMultimediaAsc(p.getIdProducto(), "MODELO_3D")
+                .map(ProductoMultimedia::getUrl).orElse(null);
+
         return new ProductoResponse(
                 p.getIdProducto(), p.getSku(), p.getNombre(), p.getDescripcion(),
                 p.getPrecioBase(),
@@ -738,6 +791,8 @@ public class ProductoServiceImpl implements ProductoService {
                 inventario,
                 multimediaRepository.findFirstByProductoIdProductoAndEsPrincipalTrueAndTipoOrderByOrdenAsc(
                         p.getIdProducto(), "IMAGEN").map(ProductoMultimedia::getUrl).orElse(null),
-                multimediaRepository.countByProductoIdProducto(p.getIdProducto()));
+                multimediaRepository.countByProductoIdProducto(p.getIdProducto()),
+                p.getEsPersonalizable(), p.getCapacidadMl(), p.getMaterial(), p.getTipoTapa(),
+                p.getPrecioPersonalizacion(), modelo3dUrl, colores);
     }
 }

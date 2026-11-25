@@ -1,5 +1,6 @@
 package com.bcsystems.siga.dto;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -30,5 +31,6 @@ public record VentaResponse(
         LocalDateTime fechaSolicitudCancelacion,
         String autorizadorCancelacion,
         LocalDateTime fechaAutorizacionCancelacion,
-        Boolean codigoGenerado
+        Boolean codigoGenerado,
+        LocalDate fechaEntrega
 ) {}

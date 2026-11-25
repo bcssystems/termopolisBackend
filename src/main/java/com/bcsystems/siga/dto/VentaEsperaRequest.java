@@ -3,6 +3,7 @@ package com.bcsystems.siga.dto;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public record VentaEsperaRequest(
@@ -11,5 +12,6 @@ public record VentaEsperaRequest(
         @NotNull Double descuento,
         @NotNull Double total,
         String nota,
-        @NotEmpty List<VentaDetalleRequest> detalles
+        @NotEmpty List<VentaDetalleRequest> detalles,
+        LocalDate fechaEntrega
 ) {}

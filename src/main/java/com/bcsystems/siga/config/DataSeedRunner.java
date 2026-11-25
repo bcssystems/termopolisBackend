@@ -91,8 +91,9 @@ public class DataSeedRunner implements CommandLineRunner {
                 "CREDITOS_VER", "CREDITOS_ABONAR",
                 "CAJAS_VER", "CAJAS_APERTURA", "CAJAS_CIERRE", "CAJAS_CORTE", "CAJAS_MOVIMIENTO",
                 "HISTORIAL_VENTAS_VER",
-                "PRODUCTOS_VER",
-                "SUCURSALES_VER",
+                 "PRODUCTOS_VER",
+                 "DISENOS_VER", "DISENOS_CREAR",
+                 "SUCURSALES_VER",
                 "TIPOS_PAGO_VER",
                 "CATEGORIAS_VER",
                 "PROVEEDORES_VER",
@@ -254,6 +255,11 @@ public class DataSeedRunner implements CommandLineRunner {
                 new String[]{"PRODUCTOS_EDITAR", "Editar Productos"},
                 new String[]{"PRODUCTOS_ELIMINAR", "Eliminar Productos"},
                 new String[]{"PRODUCTOS_MOVIMIENTO", "Movimientos de Stock"}
+        ));
+        map.put("DISENOS", List.of(
+                new String[]{"DISENOS_VER", "Ver diseños y personalizaciones"},
+                new String[]{"DISENOS_CREAR", "Crear personalizaciones"},
+                new String[]{"DISENOS_EDITAR", "Enviar y administrar personalizaciones"}
         ));
         map.put("RECEPCIONES", List.of(
                 new String[]{"RECEPCIONES_VER", "Ver Recepciones"},

@@ -21,7 +21,14 @@ public record ProductoResponse(
     LocalDateTime fechaActualizacion,
     List<InventarioSucursalResponse> inventarioSucursales,
     String imagenPrincipalUrl,
-    long cantidadMultimedia
+    long cantidadMultimedia,
+    Boolean esPersonalizable,
+    Integer capacidadMl,
+    String material,
+    String tipoTapa,
+    Double precioPersonalizacion,
+    String modelo3dUrl,
+    List<ProductoColorResponse> colores
 ) {
     public record InventarioSucursalResponse(Integer id, Integer idSucursal, String sucursalNombre, java.math.BigDecimal stock, java.math.BigDecimal stockMinimo, java.math.BigDecimal stockMaximo) {}
 }

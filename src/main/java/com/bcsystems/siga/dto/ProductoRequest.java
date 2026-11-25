@@ -14,5 +14,11 @@ public record ProductoRequest(
     @NotNull Integer idCategoria,
     String unidadMedida,
     Boolean activo,
-    List<InventarioSucursalRequest> inventarios
+    List<InventarioSucursalRequest> inventarios,
+    Boolean esPersonalizable,
+    Integer capacidadMl,
+    String material,
+    String tipoTapa,
+    Double precioPersonalizacion,
+    List<ProductoColorRequest> colores
 ) {}

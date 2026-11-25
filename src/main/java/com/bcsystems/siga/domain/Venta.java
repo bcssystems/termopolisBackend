@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.envers.Audited;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Audited
@@ -85,4 +86,7 @@ public class Venta {
 
     @Column(updatable = false)
     private LocalDateTime fecha;
+
+    @Column(name = "fecha_entrega")
+    private LocalDate fechaEntrega;
 }

@@ -38,4 +38,8 @@ public class VentaDetalle {
 
     @Column(columnDefinition = "TEXT")
     private String atributosText;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_personalizacion")
+    private Personalizacion personalizacion;
 }
